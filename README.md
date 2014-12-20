@@ -1,4 +1,4 @@
 me
 ==
 
-Collec
+Collection of Haxe APIs
