@@ -34,7 +34,7 @@ import js.Browser;
 import js.html.Element;
 import js.JQuery;
 #else
-import Tracer;
+import me.cunity.debug.Tracer;
 import js.Node;
 #end
 #end
@@ -81,7 +81,9 @@ class Out{
 		
 		logg.log('Hello World :)');
 	}
-	public static function dailyfile(){
+	public static function dailyfile()
+	{
+		traceTarget = DebugOutput.CONSOLE;
 		logg = Tracer.dailyfile( { 
 			root:'.', 
 			format : '{{timestamp}}:{{title}} {{message}} ',
@@ -254,23 +256,15 @@ class Out{
 #end
 
 
-	public static function dumpObject(ob:Dynamic, ?i:haxe.PosInfos) {
-		//var info:String = i!=null? i.className+":"+i.methodName +":"+i.lineNumber+':' :'';
-		//var tc:Sprite = new Sprite();
+	public static function dumpObject(ob:Dynamic, ?i:haxe.PosInfos) 
+	{
 		var tClass = Type.getClass(ob);
 		var m:String = 'dumpObject:' + ( ob != null ? Type.getClass(ob) :ob) + '\n';
-		//trace(ob + ':' + Type.typeof(ob) + ':' + Type.typeof(tc) + ' - ' + Type.typeof('tc'));
-		//trace((Reflect.isObject(ob) ? 'y':'n') + ' - ' + (Reflect.isObject(tc) ? 'y':'n') + ' - '+ Type.getClassName(Type.getClass(tc)));
-		//trace( 'dumpObject:' + ( ob != null ? Type.getClass(ob) :ob));
-		//trace( 'dumpObject:' + (Type.enumEq(Type.typeof(ob) , TClass(Class<Dynamic>))  ? Type.getClass(ob) :ob));
 		var names:Array<String> = new Array();
 		//trace(names.toString());
 		names = (Type.getClass(ob) != null) ?
-
 			Type.getInstanceFields(Type.getClass(ob)):
 			Reflect.fields(ob);
-		//names.concat(Type.getClassFields(Type.getClass(ob)));
-		//names = names.removeDuplicates();
 		if (Type.getClass(ob) != null)
 		//{
 			m =  Type.getClassName(Type.getClass(ob))+':\n';
