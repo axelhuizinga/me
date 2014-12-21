@@ -15,6 +15,7 @@ import js.npm.express.Session;
 import js.npm.connect.support.Middleware;
 import js.npm.express.Static;
 import js.npm.mongoose.Mongoose;
+import js.support.Error;
 import me.cunity.debug.Out;
 //using js.npm.express.Session;
 
@@ -53,10 +54,11 @@ class SheetManager extends Manager<SheetData,Sheet> { }
 
 class AjaxApp 
 {
-
+	var app:Express;
+	
 	public function new(options:ServerOptions) 
 	{
-		var app:Express = new Express();
+		app = new Express();
 		//super();
 		var secret = 'something!NEW666';
 		app.use( new CookieParser(secret));
@@ -83,7 +85,7 @@ class AjaxApp
 		app.listen(port);
 	}
 	
-	public function initRoutes(err:Null<js.support.>,sheets:Null<Array<Sheet>>):Void
+	public function initRoutes(err:Null<Error>,sheets:Null<Array<Sheet>>):Void
 	{
 		trace(sheets.length);
 		for (sheet in sheets)
