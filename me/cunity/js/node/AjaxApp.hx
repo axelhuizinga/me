@@ -4,35 +4,49 @@ package me.cunity.js.node;
  * @author axel@cunity.me
  */
 
+import js.html.Attr;
 import js.Node;
 import js.node.http.ClientRequest;
-import js.node.http.ServerResponse;
+import promhx.Deferred;
 import js.npm.Express;
 import js.npm.express.Application;
 import js.npm.express.CookieParser;
 import js.npm.express.Request;
+import js.npm.express.Response;
+import js.npm.express.Router;
 import js.npm.express.Session;
 import js.npm.connect.support.Middleware;
 import js.npm.express.Static;
+import js.npm.mongoose.macro.Manager;
+import js.npm.mongoose.macro.Model;
 import js.npm.mongoose.Mongoose;
+import js.npm.Mongoose.mongoose;
+import js.npm.mongoose.Query;
+import js.support.Error;
 import me.cunity.debug.Out;
-//using js.npm.express.Session;
+
+using js.npm.express.Session;
 
 typedef ServerOptions =
 {
-	@:optional var db:Mongoose;
+	@:optional var dbPath:String;
+	@:optional var dbConn:Mongoose;
 	@:optional var port:Int;
 	@:optional var host:String;
 }
 
-import js.npm.mongoose.macro.Model;
-import js.npm.mongoose.Mongoose;
-import js.npm.Mongoose.mongoose;
+typedef Menu =
+{
+	?name:String,
+	?label:String
+}
 
 typedef Entry =
 {
 	?title:String,
-	?content:String
+	?content:String,
+	?att:Attr,
+	?tag:String,
 }
 
 typedef SheetData = 
@@ -53,45 +67,108 @@ class SheetManager extends Manager<SheetData,Sheet> { }
 
 class AjaxApp 
 {
-
+	
+	public var dbConn:Mongoose;
+	public var router:Router;
+	
+	var app:Express;
+	var sOpts:ServerOptions;
+	var sheets:Null<Array<Sheet>>;
+	
+	var topMenu:Array<Menu>;
+	var footerMenu:Array<Menu>;
+	var dTopMenu:Deferred<Array<Menu>>;
+	
 	public function new(options:ServerOptions) 
 	{
-		var app:Express = new Express();
-		//super();
+		app = new Express();
+		app.locals.pretty = true;
+		app.set('view engine', 'jade');
+		sOpts = options;
+		var compress = Node.require('compression');
+		app.use(compress());  
 		var secret = 'something!NEW666';
 		app.use( new CookieParser(secret));
 		app.use( new Session( { secret:secret } ));
-		app.all('/', function(req:Request ,res:ServerResponse, next:MiddlewareNext)
-		//all('/', function(req ,res, next)
+		//router = new Router();
+		var express = Node.require('express');
+		topMenu = new Array();
+		footerMenu = new Array();
+		
+		dbConn = mongoose.connect(options.dbPath);
+		//Out.dumpObject(dbConn);
+		var sheetMan:SheetManager = SheetManager.build(dbConn, 'Sheet');
+		Out.dumpObject(sheetMan);
+		app.use(new Static('public'));
+		app.all('/',function(req:Request ,res: Response, next:MiddlewareNext)
 		{
-			/*var session = req.session();
+			var session = req.session();
 			if( session.n == null ){
 				session.n = 1;
-			}*/
-			res.write("<!DOCTYPE html><html><head></head><body>HELLO " );
-			//+ session.n++ + '<br>' + Reflect.fields(res).join('<br>'));
-			//Out.dumpObject(res);
-			Out.dumpObject(untyped req.session);
-			res.write("<br>request:" + Reflect.fields(req).join('<br>'));
-			res.write("<br>session:" + Type.typeof(untyped req.session) + '<br>');
-			res.end();
+			}
+			res.locals.isAjax = req.xhr;
+			var se:Array<Dynamic> = untyped app._router.stack;
+
+			trace( req.originalUrl + '<br>req.xhr:' + req.xhr + '<br>');
+			
+			if (req.param('init') || (!req.xhr && (req.originalUrl == '/' || req.originalUrl == '/index')))
+			{
+				trace('home');
+				res.render('home', { title: 'Der Gesunde Hund', topMenu:topMenu, footerMenu:footerMenu });
+				res.end();												
+				return;
+			}
+			next();
+			//
 		});
-		app.use(new Static('.'));
-		var port:Int = options.port == null ? 4040 : options.port;
-		var host:String = options.host == null ? Node.require('os').hostname() : options.host;
-		trace('$host is listening on $port :)');
-		app.listen(port);
+		var resultSet:Query<Array<Sheet>> = sheetMan.find( { }, loadSheets);		
+
 	}
 	
-	public function initRoutes(err:Null<js.support.>,sheets:Null<Array<Sheet>>):Void
+	function loadSheets(err:Null<Error>, sheets:Null<Array<Sheet>>):Void
 	{
+		this.sheets = sheets;
+		footerMenu = new Array();
+		
 		trace(sheets.length);
 		for (sheet in sheets)
 		{
 			trace(sheet.name + ':');
+			if (sheet.name == 'index')
+				sheet.name = 'home';
+				//continue;
+			footerMenu.push({name:sheet.name, label:sheet.name.substr(0, 1).toUpperCase() + sheet.name.substr(1)});
+			app.all('/' + sheet.name, function(req:Request , res:Response, next:MiddlewareNext)
+			{
+				trace(req.route.path);
+				res.locals.isAjax = req.xhr;
+				if (req.param('init') || !req.xhr)
+				{
+					trace('first load');
+					res.render(req.route.path.substr(1), { title: 'Der Gesunde Hund', topMenu:topMenu, footerMenu:footerMenu });
+					res.end();
+					return;
+				}
+				res.render(req.route.path.substr(1), 
+					{ title:  req.route.path.substr(1) , topMenu:[], footerMenu:[] } );
+				res.end();
+			});
+			
 			for (e in sheet.entries)
 				trace(e.title + ':' + e.content);
-		}		
+		}	
+		//trace('topMenu:' + topMenu);
+		var port:Int = sOpts.port == null ? 4040 : sOpts.port;
+		var host:String = sOpts.host == null ? Node.require('os').hostname() : sOpts.host;
+		trace('$host is listening on $port :)');
+		app.listen(port);
 	}
+	
+	/*function renderRoot(res:Response):Void
+	{	
+		res.render('index', { title: 'DerGesundeHund.de', topMenu:topMenu, 
+			content:jade.renderFile('views/home.jade', {})});
+		res.end();			
+	}*/
 	
 }

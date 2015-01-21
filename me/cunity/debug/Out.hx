@@ -1,7 +1,9 @@
 package me.cunity.debug;
 
 //#if !nodejs
+import haxe.EitherType;
 import haxe.Http;
+import js.html.DOMWindow;
 //import js.Node;
 //#end
 import haxe.Log;
@@ -57,6 +59,7 @@ class Out{
 	public static var traceTarget:DebugOutput = NATIVE;
 	public static var aStack:Void->Array<StackItem> = CallStack.callStack;
 	public static var logg:Tracer;
+	public static var dumpedObjects:Array<Dynamic>;
 #if php
 	public static var log:FileOutput;
 	public static var once:Bool = false;
@@ -69,7 +72,7 @@ class Out{
 	}
 	
 #elseif js_kit
-
+	
 	public static function init() { 
 		traceTarget = DebugOutput.CONSOLE;
 		Log.trace = Out._trace;
@@ -83,6 +86,7 @@ class Out{
 	}
 	public static function dailyfile()
 	{
+		Log.trace = Out._trace;
 		traceTarget = DebugOutput.CONSOLE;
 		logg = Tracer.dailyfile( { 
 			root:'.', 
@@ -226,7 +230,8 @@ class Out{
 		
 		ExternalInterface.call("dump", msg + '\n');
 	}
-#elseif (js && !(nodejs||js_kit))
+#elseif (js && !(nodejs || js_kit))
+//	BROWSER WINDOW ONLY
 	public static function dumpLayout(dI:Element, ?recursive:Null<Bool> = false, ?i :haxe.PosInfos)
 	{
 		dumpJLayout(new JQuery(dI), recursive, i);
@@ -238,6 +243,57 @@ class Out{
 		' height:' + jQ.height() + ' visibility:' + jQ.css('visibility') + ' display:' + jQ.css('display') + ' position:' + jQ.css('position') 
 		+ ' class:' + jQ.attr('class') +' overflow:' + jQ.css('overflow');
 		_trace(m, i);
+	}
+	
+	public static function dumpObjectTree(root:Dynamic, recursive:Bool = false, ?i:PosInfos)
+	{
+		dumpedObjects = new Array();
+		_dumpObjectTree(root, Type.typeof(root), recursive, i);
+	}
+	
+	static function _dumpObjectTree(root:Dynamic, parent:ValueType, recursive:Bool, ?i:PosInfos)
+	{
+		var m:String = ((Type.getClass(root) != null) 
+			? Type.getClassName(Type.getClass(root))
+			: Type.typeof(root).getName()) + ':';
+		var fields:Array<String> = (Type.getClass(root) != null) ?
+			Type.getInstanceFields(Type.getClass(root)):
+			Reflect.fields(root);
+
+		dumpedObjects.push(root);
+		//dumpedObjects.push(parent);
+		try {
+			_trace(m + ' fields:' + fields.length + ':' + fields.slice(0, 5).toString());
+			for (f in fields)
+			{
+				trace(f);
+				if (recursive)
+				{
+					if (dumpedObjects.length > 1000)
+					{
+						_trace(dumpedObjects.toString());
+						throw('oops');
+						break;
+						return;
+					}
+					else
+					{
+						var _o = untyped __js__("root[f]");
+						if ( ! Lambda.has(dumpedObjects, _o))
+						//if ( ! Lambda.has(dumpedObjects, Type.typeof(_o)))
+						{						
+							_dumpObjectTree( _o, Type.typeof(_o), true, i);
+						}						
+					}
+					
+				}
+			}
+		}
+		
+		catch(ex:Dynamic){
+			trace(ex);
+		}
+		//_trace(fields, i);
 	}
 #elseif php
 	public static function printCDATA(data:String, ?i:PosInfos) {
@@ -290,12 +346,11 @@ class Out{
 	public static function dumpStack(sA:Array<StackItem>,  ?i:PosInfos):Void
 	{
 		var b:StringBuf = new StringBuf();
-		b.add("StackDump:" + #if php "<br/>" #else"\n"#end);
+		b.add("StackDump:" + #if php "<br/>" #else'\n'#end);
 		for (item in sA)
 		{			
 			itemToString(item, b);
-			//b.add(CallStack.toString(
-			//b.add("\n");
+			b.add(#if php "<br/>" #else'\n'#end);
 		}
 		//_trace(#if php ~/\n|\r\n/g.replace(b.toString(), "<br/>") #else b.toString()#end, i);
 		//_trace(~/<br\/>$/.replace(b.toString(),''), i);
