@@ -3,7 +3,7 @@ package me.cunity.js.dom;
 import js.Boot;
 import js.Browser;
 import js.html.*;
-import js.JQuery;
+import jQuery.*;
 import js.Lib;
 import me.cunity.js.data.Parse;
 import me.cunity.js.dom.MenuItem;

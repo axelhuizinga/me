@@ -28,7 +28,7 @@ import neko.Web;
 #if js
 import me.cunity.util.GlobalTimer;
 import me.cunity.js.layout.*;
-import js.JQuery;
+import jQuery.*;
 typedef ScreenList = {
 	var id:String;
 	var container:Container;

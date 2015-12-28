@@ -28,7 +28,7 @@ import me.cunity.js.layout.Types;
 
 //import jQuery.JQuery;
 #if js
-import js.JQuery;
+import jQuery.*;
 #end
 
 using me.cunity.js.layout.Ext;

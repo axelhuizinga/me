@@ -5,7 +5,7 @@ import haxe.Log;
 import haxe.remoting.Connection;
 import js.Browser;
 import js.html.*;
-import js.JQuery;
+import jQuery.*;
 import js.Lib;
 import me.cunity.debug.Out;
 import me.cunity.php.applet.IMediaServiceApi;

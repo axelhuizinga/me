@@ -1,5 +1,5 @@
 package me.cunity.js.layout;
-import js.JQuery;
+import jQuery.*;
 /*
  * @author axel@cunity.me
  * All rights reserved

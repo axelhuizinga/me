@@ -1,5 +1,5 @@
 package me.cunity.js.dom;
-import js.JQuery;
+import jQuery.*;
 import me.cunity.debug.Out;
 import me.cunity.js.debug.Util;
 import me.cunity.js.dom.Base;

@@ -1,17 +1,10 @@
 package me.cunity.debug;
 
-//#if !nodejs
-import haxe.EitherType;
 import haxe.Http;
-import js.html.DOMWindow;
-//import js.Node;
-//#end
 import haxe.Log;
 import haxe.PosInfos;
 import haxe.CallStack;
-
 import Type;
-
 
 #if flash
 import flash.Boot;
@@ -30,11 +23,14 @@ import php.Lib;
 import neko.Lib;
 #end
 #if js
+import jQuery.JHelper;
 import js.Boot;
+import js.html.DOMWindow;
 #if !(nodejs||js_kit)
 import js.Browser;
 import js.html.Element;
-import js.JQuery;
+import jQuery.*;
+import jQuery.JHelper.J;
 #else
 import me.cunity.debug.Tracer;
 import js.Node;
@@ -47,6 +43,7 @@ enum DebugOutput {
 	CONSOLE;
 	HAXE;
 	NATIVE;
+	LOG;
 }
 
 @:keep 
@@ -122,9 +119,9 @@ class Out{
 				untyped __call__('error_log', msg);
 			case CONSOLE:
 				Lib.print(msg + "\r\n");
-			case HAXE:									
+			case HAXE:								
 				php.Lib.print(StringTools.htmlEscape(msg) + '<br/>');
-
+			case LOG:
 		}				
 
 		if (once)
@@ -177,6 +174,13 @@ class Out{
 						d.innerHTML += msg;
 					#end
 				}
+			case LOG:
+				#if js
+				#if !(nodejs||js_kit)
+				JQueryStatic.post(Browser.window.location.protocol + '//' + Browser.window.location.host + '/inc/functions.php',{log:1,m:msg});
+				#end
+				#else
+				#end				
 
 		}
 		#end			
@@ -239,12 +243,17 @@ class Out{
 	
 	public static function dumpJLayout(jQ:JQuery, ?recursive:Null<Bool> = false, ?i :haxe.PosInfos)
 	{
+		trace(jQ.length);
+		if (jQ.length == 0)
+			return;
 		var m:String = jQ.attr('id') + ' left:' + jQ.position().left + ' top:' + jQ.position().top +' width:' + jQ.width() + 
 		' height:' + jQ.height() + ' visibility:' + jQ.css('visibility') + ' display:' + jQ.css('display') + ' position:' + jQ.css('position') 
 		+ ' class:' + jQ.attr('class') +' overflow:' + jQ.css('overflow');
 		_trace(m, i);
 	}
 	
+	@:keep
+	@:expose
 	public static function dumpObjectTree(root:Dynamic, recursive:Bool = false, ?i:PosInfos)
 	{
 		dumpedObjects = new Array();
@@ -340,6 +349,35 @@ class Out{
 		//else
 			//m = Std.string(ob);
 		
+		_trace(m, i);
+	}
+	
+	public static function dumpObjectRsafe(ob:Dynamic, ?i:haxe.PosInfos) 
+	{
+		var tClass = Type.getClass(ob);
+		var m:String = 'dumpObjectRsafe:' + ( ob != null ? Type.getClass(ob) :ob) + '\n';
+		var names:Array<String> = new Array();
+		//trace(names.toString());
+		names = (Type.getClass(ob) != null) ?
+			Type.getInstanceFields(Type.getClass(ob)):
+			Reflect.fields(ob);
+		if (Type.getClass(ob) != null)
+			m =  Type.getClassName(Type.getClass(ob))+':\n';
+			
+			for (name in names) {
+				try {
+					var t = Std.string(Type.typeof(Reflect.field(ob, name)));
+					if ( skipFunctions && t == 'TFunction')
+					null;
+					if (name == 'parentView' || name == 'ContextMenu' || name == 'cMenu' )
+					m += name + ':' + ob.parentView.id+ '\n';
+					else
+					m += name + ':' +Reflect.field(ob,name) + ':' + t + '\n';
+				}
+				catch (ex:Dynamic) {
+					m += name + ':' + ex;
+				}
+			}		
 		_trace(m, i);
 	}
 	

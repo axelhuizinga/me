@@ -1,6 +1,6 @@
 package me.cunity.js;
 //import jQuery.JQuery;
-import js.JQuery;
+import jQuery.*;
 import js.html.*;
 import js.Lib;
 import me.cunity.debug.Out;

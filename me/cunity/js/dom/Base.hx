@@ -2,7 +2,7 @@ package me.cunity.js.dom;
 
 import js.Browser;
 import js.html.*;
-import js.JQuery;
+import jQuery.*;
 import js.Lib;
 import me.cunity.debug.Out;
 import me.cunity.js.data.Parse;

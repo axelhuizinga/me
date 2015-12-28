@@ -1,5 +1,5 @@
 package me.cunity.js.layout;
-import js.JQuery;
+import jQuery.*;
 import js.Lib;
 import me.cunity.debug.Out;
 import me.cunity.js.layout.Types;

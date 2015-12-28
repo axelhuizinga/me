@@ -1,5 +1,5 @@
 package me.cunity.js;
-import js.JQuery;
+import jQuery.*;
 
 /**
  * ...
