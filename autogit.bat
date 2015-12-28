@@ -9,5 +9,5 @@ echo %Version%.%Build_ID%
 
 git add -A
 git commit -am "AutoCommit Build: %Version%.%Build_ID%"
-git push 
-rem origin master
+git push origin master
+
