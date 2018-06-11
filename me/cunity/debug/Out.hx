@@ -23,14 +23,15 @@ import php.Lib;
 import neko.Lib;
 #end
 #if js
-import jQuery.JHelper;
+
 import js.Boot;
-import js.html.DOMWindow;
-#if !(nodejs||js_kit)
+
+#if !(nodejs || js_kit)
+import me.cunity.js.JHelper;
+import js.html.Window;
 import js.Browser;
 import js.html.Element;
-import jQuery.*;
-import jQuery.JHelper.J;
+import js.jquery.*;
 #else
 import me.cunity.debug.Tracer;
 import js.Node;
@@ -38,6 +39,7 @@ import js.Node;
 #end
 
 using me.cunity.tools.ArrayTools;
+using Lambda;
 
 enum DebugOutput {
 	CONSOLE;
@@ -51,11 +53,11 @@ enum DebugOutput {
 class Out{
 	
 	public static var suspended:Bool = #if noTrace true #else false #end; 
+	public static var skipFields:Array<String> = [];
 	public static var skipFunctions:Bool = true;
 	public static var traceToConsole:Bool = false;
 	public static var traceTarget:DebugOutput = NATIVE;
 	public static var aStack:Void->Array<StackItem> = CallStack.callStack;
-	public static var logg:Tracer;
 	public static var dumpedObjects:Array<Dynamic>;
 #if php
 	public static var log:FileOutput;
@@ -70,6 +72,7 @@ class Out{
 	
 #elseif js_kit
 	
+	public static var logg:Tracer;
 	public static function init() { 
 		traceTarget = DebugOutput.CONSOLE;
 		Log.trace = Out._trace;
@@ -177,7 +180,7 @@ class Out{
 			case LOG:
 				#if js
 				#if !(nodejs||js_kit)
-				JQueryStatic.post(Browser.window.location.protocol + '//' + Browser.window.location.host + '/inc/functions.php',{log:1,m:msg});
+				JQuery.post(Browser.window.location.protocol + '//' + Browser.window.location.host + '/inc/functions.php',{log:1,m:msg});
 				#end
 				#else
 				#end				
@@ -243,13 +246,30 @@ class Out{
 	
 	public static function dumpJLayout(jQ:JQuery, ?recursive:Null<Bool> = false, ?i :haxe.PosInfos)
 	{
-		trace(jQ.length);
+		//trace(jQ.length);
 		if (jQ.length == 0)
 			return;
 		var m:String = jQ.attr('id') + ' left:' + jQ.position().left + ' top:' + jQ.position().top +' width:' + jQ.width() + 
 		' height:' + jQ.height() + ' visibility:' + jQ.css('visibility') + ' display:' + jQ.css('display') + ' position:' + jQ.css('position') 
-		+ ' class:' + jQ.attr('class') +' overflow:' + jQ.css('overflow');
+		+ ' class:' + jQ.attr('class') +' overflow:' + jQ.css('overflow') + ' zIndex:' + jQ.css('z-index') + ' opacity:' + jQ.css('opacity');
 		_trace(m, i);
+		if (recursive && jQ.parent().attr('id') != 'bgBox')
+			dumpJLayout(jQ.parent(), true, i);
+	}
+	
+	public static function dumpObjectRSafe(root:Dynamic, recursive:Bool = false, ?i:PosInfos)
+	{
+		var oCopy:Dynamic = {};
+		for (f in Reflect.fields(root))
+		{
+			if (f == 'parentView')
+			{
+				oCopy.parentView = root.parentView.instancePath;
+				continue;
+			}
+			Reflect.setField(oCopy,f, Reflect.field(root, f));
+		}
+		dumpObject(oCopy, i);
 	}
 	
 	@:keep
@@ -264,23 +284,31 @@ class Out{
 	{
 		var m:String = ((Type.getClass(root) != null) 
 			? Type.getClassName(Type.getClass(root))
-			: Type.typeof(root).getName()) + ':';
+			: Type.typeof(root).getName());
 		var fields:Array<String> = (Type.getClass(root) != null) ?
 			Type.getInstanceFields(Type.getClass(root)):
 			Reflect.fields(root);
-
-		dumpedObjects.push(root);
+		if (m == 'String')
+		{
+			_trace(root + ' len:' + root.length, i);
+		}
+		else
+		{
+			//don't save Strings
+			dumpedObjects.push(root);
+			_trace(m + ' fields:' + fields.length + ':' + fields.slice(0, 5).toString(),i);
+		}
 		//dumpedObjects.push(parent);
 		try {
-			_trace(m + ' fields:' + fields.length + ':' + fields.slice(0, 5).toString());
+			
 			for (f in fields)
 			{
-				trace(f);
+				trace(f,i);
 				if (recursive)
 				{
 					if (dumpedObjects.length > 1000)
 					{
-						_trace(dumpedObjects.toString());
+						_trace(dumpedObjects.toString(),i);
 						throw('oops');
 						break;
 						return;
@@ -289,7 +317,6 @@ class Out{
 					{
 						var _o = untyped __js__("root[f]");
 						if ( ! Lambda.has(dumpedObjects, _o))
-						//if ( ! Lambda.has(dumpedObjects, Type.typeof(_o)))
 						{						
 							_dumpObjectTree( _o, Type.typeof(_o), true, i);
 						}						
@@ -335,6 +362,11 @@ class Out{
 			m =  Type.getClassName(Type.getClass(ob))+':\n';
 			//untyped{
 			for (name in names) {
+				if (skipFields.has(name))
+				{
+					m += '$name:skipped\n';
+					continue;
+				}
 				try {
 					var t = Std.string(Type.typeof(Reflect.field(ob, name)));
 					if ( skipFunctions && t == 'TFunction')
@@ -352,7 +384,7 @@ class Out{
 		_trace(m, i);
 	}
 	
-	public static function dumpObjectRsafe(ob:Dynamic, ?i:haxe.PosInfos) 
+	/*public static function dumpObjectRsafe(ob:Dynamic, ?i:haxe.PosInfos) 
 	{
 		var tClass = Type.getClass(ob);
 		var m:String = 'dumpObjectRsafe:' + ( ob != null ? Type.getClass(ob) :ob) + '\n';
@@ -365,6 +397,7 @@ class Out{
 			m =  Type.getClassName(Type.getClass(ob))+':\n';
 			
 			for (name in names) {
+				if(skipFields
 				try {
 					var t = Std.string(Type.typeof(Reflect.field(ob, name)));
 					if ( skipFunctions && t == 'TFunction')
@@ -379,12 +412,12 @@ class Out{
 				}
 			}		
 		_trace(m, i);
-	}
+	}*/
 	
 	public static function dumpStack(sA:Array<StackItem>,  ?i:PosInfos):Void
 	{
 		var b:StringBuf = new StringBuf();
-		b.add("StackDump:" + #if php "<br/>" #else'\n'#end);
+		b.add("StackDump:" + #if php sA.length + "<br/>" #else'\n'#end);
 		for (item in sA)
 		{			
 			itemToString(item, b);
@@ -392,7 +425,7 @@ class Out{
 		}
 		//_trace(#if php ~/\n|\r\n/g.replace(b.toString(), "<br/>") #else b.toString()#end, i);
 		//_trace(~/<br\/>$/.replace(b.toString(),''), i);
-		_trace(b.toString(), i);
+		trace(b.toString(), i);
 	}
 		
 	static function itemToString(s:StackItem, b :StringBuf)
